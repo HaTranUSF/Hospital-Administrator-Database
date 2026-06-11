@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hospital Administration System - Database Architecture Spec</title>
+    <style>
+        :root {
+            --primary: #1e293b;
+            --secondary: #0f172a;
+            --accent: #0284c7;
+            --bg: #f8fafc;
+            --card-bg: #ffffff;
+            --text: #334155;
+            --text-dark: #0f172a;
+            --border: #e2e8f0;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            line-height: 1.6;
+            background-color: var(--bg);
+            color: var(--text);
+            padding: 40px 20px;
+        }
+        .container {
+            max-width: 1100px;
+            margin: 0 auto;
+        }
+        header {
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            color: white;
+            padding: 40px;
+            border-radius: 12px;
+            margin-bottom: 30px;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+        }
+        header h1 { font-size: 2.2rem; margin-bottom: 10px; font-weight: 700; }
+        header p { font-size: 1.1rem; opacity: 0.9; }
+        .meta { margin-top: 15px; font-size: 0.9rem; color: #bae6fd; }
+        
+        .section {
+            background: var(--card-bg);
+            padding: 30px;
+            border-radius: 12px;
+            margin-bottom: 25px;
+            border: 1px solid var(--border);
+            box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1);
+        }
+        h2 { color: var(--text-dark); margin-bottom: 20px; font-size: 1.4rem; border-left: 5px solid var(--accent); padding-left: 12px; }
+        h3 { color: var(--text-dark); margin: 20px 0 10px 0; font-size: 1.1rem; }
+        p { margin-bottom: 15px; }
+        ul { margin-bottom: 15px; padding-left: 20px; }
+        li { margin-bottom: 6px; }
+        
+        .table-container {
+            overflow-x: auto;
+            margin: 20px 0;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            text-align: left;
+            font-size: 0.9rem;
+        }
+        th { background-color: #f1f5f9; color: var(--text-dark); font-weight: 600; padding: 12px 14px; border-bottom: 2px solid var(--border); }
+        td { padding: 12px 14px; border-bottom: 1px solid var(--border); color: #475569; }
+        tr:last-child td { border-bottom: none; }
+        tr:nth-child(even) { background-color: #f8fafc; }
+        
+        .badge {
+            background-color: #e0f2fe;
+            color: #0369a1;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 0.85rem;
+        }
+        .badge-pk { background-color: #fef3c7; color: #92400e; }
+        .badge-fk { background-color: #dcfce7; color: #166534; }
+        
+        .grid {
+            display: block;
+        }
+        .tag-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 15px; }
+        .tag { background: rgba(255,255,255,0.15); padding: 4px 12px; border-radius: 20px; font-size: 0.85rem; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <header>
+        <h1>Hospital Administration System</h1>
+        <p>Comprehensive Relational Database Architecture Specification</p>
+        <div class="meta">
+            <strong>Designer:</strong> Ha Tran &nbsp;|&nbsp; 
+            <strong>Target Environments:</strong> MS SQL Server, PostgreSQL, MySQL
+        </div>
+        <div class="tag-row">
+            <span class="tag">Database Design Documentation (DBDD)</span>
+            <span class="tag">Data Architecture</span>
+            <span class="tag">Schema Normalization</span>
+        </div>
+    </header>
+
+    <div class="section">
+        <h2>System Objective & Purpose</h2>
+        <p>This technical system specification outlines an enterprise-grade database engine designed for a hospital administrator to systematically monitor administrative, clinical, and billing layers. The model provides multi-point data auditing covering nurse schedules, physical ward floor assignments, real-time patient bed workflows, multi-doctor clinical treatments, and historical item-level cost tracking.</p>
+    </div>
+
+    <div class="section">
+        <h2>Core Business Rules Implemented</h2>
+        <ul>
+            <li><strong>Organizational Hierarchy:</strong> A nurse can recursively supervise multiple other nurses. A nurse can only report to a single superior officer at any given time.</li>
+            <li><strong>Rotational Staffing Schedules:</strong> Nurses are cross-assigned across multiple wards over time. Tracking captures discrete timestamps alongside precise cumulative decimals for fractional shift hours worked.</li>
+            <li><strong>Ward Ownership Constraints:</strong> Each ward designates a single, unique Charge Nurse who acts as the primary legal custodian of medical records. No individual nurse may run multiple wards simultaneously.</li>
+            <li><strong>Bed Space Allocation Boundaries:</strong> Beds are permanently inventoried to specified physical wings. A physical bed location can support zero or one patient simultaneously; overlapping transactional occupancies are blocked at schema level.</li>
+            <li><strong>Clinical Admission Splits:</strong> Admissions explicitly decouple the initial admitting primary doctor from the concluding discharging doctor, supporting fluid cross-departmental operations.</li>
+            <li><strong>Granular Interaction Loggers:</strong> Captures structural micro-events spanning wellness checks, clinical medication cycles, food distribution routines, and active physical therapy protocols.</li>
+        </ul>
+    </div>
+
+    <div class="section">
+        <h2>Relational Data Dictionary Engine</h2>
+        
+        <h3>1. Table: Nurse</h3>
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr><th>Column Name</th><th>Data Type</th><th>Size</th><th>Attributes</th><th>Description / Domain Rules</th></tr>
+                </thead>
+                <tbody>
+                    <tr><td>NurseID</td><td>int</td><td>-</td><td><span class="badge badge-pk">PK</span> Identity</td><td>Sequential identity cluster.</td></tr>
+                    <tr><td>FirstName</td><td>nvarchar</td><td>20</td><td>NotNull</td><td>Given first name.</td></tr>
+                    <tr><td>LastName</td><td>nvarchar</td><td>20</td><td>NotNull</td><td>Family last name.</td></tr>
+                    <tr><td>Phone</td><td>char</td><td>14</td><td>NotNull</td><td>Standard contact formatting string.</td></tr>
+                    <tr><td>Street</td><td>nvarchar</td><td>30</td><td>NotNull</td><td>Home street vector.</td></tr>
+                    <tr><td>City</td><td>nvarchar</td><td>30</td><td>NotNull</td><td>Residential city registry.</td></tr>
+                    <tr><td>State</td><td>char</td><td>2</td><td>NotNull</td><td>Constraint: <code>LIKE '[A-Z][A-Z]'</code></td></tr>
+                    <tr><td>Zip</td><td>char</td><td>5</td><td>NotNull</td><td>Constraint: <code>LIKE '[0-9]'</code> x5 digit verification.</td></tr>
+                    <tr><td>AltPhone</td><td>char</td><td>14</td><td>Null</td><td>Alternative standby contact string.</td></tr>
+                    <tr><td>Email</td><td>nvarchar</td><td>20</td><td>NotNull</td><td>Electronic communications channel.</td></tr>
+                    <tr><td>SupervisorNo</td><td>int</td><td>-</td><td><span class="badge badge-fk">FK</span> Null</td><td>Recursive foreign key mapping backwards to <code>NurseID</code>.</td></tr>
+                </tbody>
+            </table>
+        </div>
+
+        <h3>2. Table: Ward</h3>
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr><th>Column Name</th><th>Data Type</th><th>Size</th><th>Attributes</th><th>Description / Domain Rules</th></tr>
+                </thead>
+                <tbody>
+                    <tr><td>WardID</td><td>int</td><td>-</td><td><span class="badge badge-pk">PK</span> Identity</td><td>Unique structural department id tag.</td></tr>
+                    <tr><td>WardName</td><td>nvarchar</td><td>30</td><td>NotNull, Unique</td><td>Descriptive tracking title.</td></tr>
+                    <tr><td>Location</td><td>nvarchar</td><td>20</td><td>NotNull</td><td>Physical floor grid coordinates.</td></tr>
+                    <tr><td>Phone</td><td>char</td><td>14</td><td>NotNull</td><td>Dedicated desk contact line.</td></tr>
+                    <tr><td>ChargeNurse</td><td>int</td><td>-</td><td><span class="badge badge-fk">FK</span> Unique</td><td>Maps to <code>NurseID</code>. Enforces 1:1 custodian rules.</td></tr>
+                </tbody>
+            </table>
+        </div>
+
+        <h3>3. Table: Bed</h3>
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr><th>Column Name</th><th>Data Type</th><th>Size</th><th>Attributes</th><th>Description / Domain Rules</th></tr>
+                </thead>
+                <tbody>
+                    <tr><td>BedID</td><td>int</td><td>-</td><td><span class="badge badge-pk">PK</span> Identity</td><td>Unique barcode inventory tag.</td></tr>
+                    <tr><td>Size</td><td>char</td><td>2</td><td>Default 'L'</td><td>Constraint: <code>LIKE 'S' OR 'M' OR 'L' OR 'XL'</code></td></tr>
+                    <tr><td>Type</td><td>char</td><td>1</td><td>Default 'M'</td><td>Constraint: <code>LIKE 'E' (Electric) OR 'M' (Manual)</code></td></tr>
+                    <tr><td>Availability</td><td>char</td><td>1</td><td>Default 'O'</td><td>Constraint: <code>LIKE 'O' (Occupied) OR 'A' (Available)</code></td></tr>
+                    <tr><td>WardID</td><td>int</td><td>-</td><td><span class="badge badge-fk">FK</span> NotNull</td><td>Maps to <code>WardID</code> location track.</td></tr>
+                </tbody>
+            </table>
+        </div>
+
+        <h3>4. Table: Patient</h3>
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr><th>Column Name</th><th>Data Type</th><th>Size</th><th>Attributes</th><th>Description / Domain Rules</th></tr>
+                </thead>
+                <tbody>
+                    <tr><td>PatientID</td><td>int</td><td>-</td><td><span class="badge badge-pk">PK</span> Identity</td><td>Sequential customer registration.</td></tr>
+                    <tr><td>FirstName</td><td>nvarchar</td><td>20</td><td>NotNull</td><td>Given first name.</td></tr>
+                    <tr><td>LastName</td><td>nvarchar</td><td>20</td><td>NotNull</td><td>Family last name.</td></tr>
+                    <tr><td>Gender</td><td>char</td><td>2</td><td>NotNull</td><td>Constraint: <code>LIKE 'M' OR 'F' OR 'NA'</code></td></tr>
+                    <tr><td>DOB</td><td>date</td><td>-</td><td>NotNull</td><td>Legal date of birth.</td></tr>
+                    <tr><td>Age</td><td>int</td><td>-</td><td>Computed</td><td>Engine expression: <code>datediff(year, DOB, getdate())</code></td></tr>
+                    <tr><td>Street</td><td>nvarchar</td><td>30</td><td>NotNull</td><td>Billing street marker.</td></tr>
+                    <tr><td>City</td><td>nvarchar</td><td>30</td><td>NotNull</td><td>Billing city engine.</td></tr>
+                    <tr><td>State</td><td>char</td><td>2</td><td>NotNull</td><td>Constraint: <code>LIKE '[A-Z][A-Z]'</code></td></tr>
+                    <tr><td>Zip</td><td>char</td><td>5</td><td>NotNull</td><td>Constraint: <code>LIKE '[0-9]'</code> x5</td></tr>
+                    <tr><td>Phone</td><td>char</td><td>14</td><td>NotNull</td><td>Primary contact channel.</td></tr>
+                    <tr><td>AltPhone</td><td>char</td><td>14</td><td>Null</td><td>Backup notification point.</td></tr>
+                    <tr><td>Email</td><td>nvarchar</td><td>30</td><td>Null</td><td>Patient text channel.</td></tr>
+                    <tr><td>BedID</td><td>int</td><td>-</td><td><span class="badge badge-fk">FK</span> NotNull</td><td>Maps active real-time location back to <code>BedID</code>.</td></tr>
+                </tbody>
+            </table>
+        </div>
+
+        <h3>5. Table: NursePatient (Care Interactions)</h3>
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr><th>Column Name</th><th>Data Type</th><th>Size</th><th>Attributes</th><th>Description / Domain Rules</th></tr>
+                </thead>
+                <tbody>
+                    <tr><td>EventID</td><td>int</td><td>-</td><td><span class="badge badge-pk">PK</span> Identity</td><td>Atomic log tracker id.</td></tr>
+                    <tr><td>EventType</td><td>nvarchar</td><td>15</td><td>NotNull</td><td>Domain Check: <code>'wellness check', 'medication', 'food service', 'assistance', 'treatment admin', 'other'</code></td></tr>
+                    <tr><td>Date</td><td>date</td><td>-</td><td>NotNull</td><td>Chronological date marker.</td></tr>
+                    <tr><td>Time</td><td>time</td><td>-</td><td>NotNull</td><td>Chronological microtime stamp.</td></tr>
+                    <tr><td>PatientID</td><td>int</td><td>-</td><td><span class="badge badge-fk">FK</span> NotNull</td><td>Target patient context.</td></tr>
+                    <tr><td>NurseID</td><td>int</td><td>-</td><td><span class="badge badge-fk">FK</span> NotNull</td><td>Logging provider profile.</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+</body>
+</html>
